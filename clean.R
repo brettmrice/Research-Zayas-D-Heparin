@@ -1,6 +1,6 @@
 library(tidyverse)
 
-hep_protocol_raw <- readxl::read_xlsx('data/2024.xlsx', sheet = 1)
+hep_protocol_raw <- readxl::read_xlsx(sheet = 1)
 hep_protocol_clean <- hep_protocol_raw |>
   transmute(ID = `Medical Record Number`,
             Admit_DT = ymd_hms(`Admit Date & Time`),
@@ -10,7 +10,10 @@ hep_protocol_clean <- hep_protocol_raw |>
             Hep_End_DT = ymd_hms(`Heparin End Date & Time`),
             Hep_hours = round(interval(Hep_Start_DT, Hep_End_DT)/hours(1), 1))
 
-aptt_raw <- readxl::read_xlsx('data/2024.xlsx', sheet = 2)
+aptt_raw_txt <- list.files('data/aptt_linearity/data/', pattern = '.txt', full.names = TRUE) |>
+  read_delim(delim = '\t')
+aptt_raw_xlsx <- list.files('data/aptt_linearity/data/', pattern = '.xlsx', full.names = TRUE) |>
+  map_dfr(readxl::read_xlsx)
 aptt_clean <- aptt_raw |>
   transmute(ID = `Medical Record Number`,
             Test = `Test Name`,
@@ -57,6 +60,6 @@ hep_protocol_data <- hp24aptt |>
   ungroup() |>
   rename("Test_Seq" = "RN")
 
-write_csv(hep_protocol_data,
-          quote = 'none',
-          file = 'heparin_2024.csv')
+# write_csv(hep_protocol_data,
+#           quote = 'none',
+#           file = 'heparin_2024.csv')
