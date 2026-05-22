@@ -1,4 +1,5 @@
 library(tidyverse)
+library(psych)
 
 APTT_2024_stats <- APTT_2024_hid |>
   select(!c(Test:DT_Complete)) |>
@@ -98,7 +99,13 @@ APTT_hid_both |>
 
 #  chi-squared test for OOR proportions
 chisq.test(APTT_hid_both$Cohort, APTT_hid_both$OOR)
+# cramer's V effect size, same formula for phi coefficient when 2x2 table
 sqrt(chisq.test(APTT_hid_both$Cohort, APTT_hid_both$OOR)$statistic / sum(table(APTT_hid_both$Cohort, APTT_hid_both$OOR)))
+# phi coefficient effect size
+phi(table(APTT_hid_both$Cohort, APTT_hid_both$OOR))
+
+# cohens h coefficient effect size
+2*(asin(sqrt(0.122))) - 2*(asin(sqrt(0.046)))
 
 # total from 2025 that were 120 to 400
 APTT_hid_both |>
@@ -119,3 +126,5 @@ mwu_frequency <- wilcox.test(n_Tests ~ Cohort, data = APTT_hid_both_freq, exact 
 mwu_frequency
 #  effect size
 abs(qnorm(mwu_frequency$p.value / 2)) / sqrt(nrow(APTT_hid_both_freq))
+
+
