@@ -18,6 +18,9 @@ aptt_24 <- aptt_24_raw|>
   mutate(Result_Comment = ifelse(!is.na(mdy_hms(lead(Race, 1))), 
                                  paste0(Result_Comment, ' ', lead(ID, 1)),
                                  Result_Comment),
+         DT_Drawn = ifelse(!is.na(mdy_hms(lead(Race, 1))), 
+                           lead(DOB, 1),
+                           DT_Drawn),
          DT_InLab = ifelse(!is.na(mdy_hms(lead(Race, 1))), 
                            lead(DOB, 1),
                            DT_InLab),
@@ -27,7 +30,7 @@ aptt_24 <- aptt_24_raw|>
          DT_Complete = ifelse(!is.na(mdy_hms(lead(Race, 1))), 
                               lead(Race, 1),
                               DT_Complete)) |>
-  filter(Test == 'APTT',
+  filter(Test != '\r',
          DT_Drawn != 1) |>
   mutate(across(contains('DT_'), mdy_hms)) |>
   mutate(DOB = mdy_hms(DOB) |> as_date(),
@@ -70,7 +73,7 @@ APTT_2024 <- aptt_24_hepprot |>
          as_date(DT_InLab) >= DT_Hep_Start,
          # as_date(DT_InLab) <= DT_Hep_Stop,
          Hep_Duration >= 1) |>
-  select(!c(DOB, DT_Drawn, DT_InLab, DT_Verify, Age)) |>
+  select(!c(DOB, DT_Verify, Age)) |>
   group_by(ID, DT_Admit) |>
   arrange(DT_Admit, DT_Hep_Start, DT_Complete) |>
   mutate(Sample_Seq = row_number()) |>
@@ -90,7 +93,7 @@ APTT_2024_hid <- APTT_2024 |>
   
 
 
-aptt_25_raw <- list.files('data/data_in_use/', pattern = 'APTT_2025.xlsx', full.names = TRUE) |>
+aptt_25_raw <- list.files('data/data_in_use/', pattern = 'APTT_2025', full.names = TRUE) |>
   map_dfr(readxl::read_xlsx, guess_max = Inf)
 aptt_25 <- aptt_25_raw |>
   transmute(ID = str_split_i(`Patient/MRN`, ' \\(', 2) |> 
@@ -113,7 +116,7 @@ aptt_25 <- aptt_25_raw |>
                          Result),
          Result = str_split_i(Result, ' ', 1)) |>
   ungroup() |>
-  select(!c(DT_Drawn, DT_Verify)) |>
+  select(!c(DT_Verify)) |>
   filter(month(DT_InLab) >= 2)
 
 aptt_25_hepprot_raw <- readxl::read_xlsx('data/data_in_use/Heparin_Protocol_2025.xlsx', sheet = 1)
@@ -147,7 +150,7 @@ APTT_2025 <- aptt_25_hepprot |>
          as_date(DT_InLab) >= DT_Hep_Start,
          # as_date(DT_InLab) <= DT_Hep_Stop,
          Hep_Duration >= 1) |>
-  select(!c(DOB, DT_InLab, Age)) |>
+  select(!c(DOB, Age)) |>
   group_by(ID, DT_Admit) |>
   arrange(DT_Admit, DT_Hep_Start, DT_Complete) |>
   mutate(Sample_Seq = row_number()) |>
@@ -164,5 +167,13 @@ APTT_2025_hid <- APTT_2025 |>
 # write_delim(APTT_2025_hid, delim = '\t', file = 'APTT_2025.txt')
 
   
+APTT_2025_hid |>
+  mutate(
+    SSeq = row_number(), 
+    .by = c(ID, DT_Admit, DT_Drawn)) |>
+  mutate(
+    SSeq2 = row_number(), 
+    .by = c(ID, DT_Admit, SSeq)) |>
+  View()
 
 
