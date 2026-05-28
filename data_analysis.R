@@ -1,14 +1,13 @@
 library(tidyverse)
 library(psych)
 
-APTT_2024_stats <- APTT_2024_hid |>
-  filter(Test == 'APTT') |>
+APTT_2024_stats <- APTT_2024_Clean |>
   select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
          Cohort = "2024")
 
-APTT_2025_stats <- APTT_2025_hid |>
+APTT_2025_stats <- APTT_2025_Clean |>
   select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
@@ -77,39 +76,44 @@ APTT_both |>
 
 
 #  OOR results
-APTT_hid_both <- APTT_2024_hid |>
+APTT_Clean_both <- APTT_2024_Clean |>
   mutate(
     ID = as.character(ID),
     Result = ifelse(Result == 0 | Result == 120 | is.na(Result), 'OOR', as.character(Result)),
     Cohort = "2024") |>
-  bind_rows(APTT_2025_hid |>
+  bind_rows(APTT_2025_Clean |>
               mutate(ID = as.character(ID),
                      Result = ifelse(Result == 0 | Result == 400 | is.na(Result), 'OOR', as.character(Result)),
                      Cohort = "2025")) |>
   mutate(OOR = ifelse(Result == 'OOR', 1, 0))
 
+# clean and only APTT tests
+APTT_Clean_both_APTT_only <- APTT_Clean_both |>
+  filter(Test == 'APTT')
+
 # total APTT tests
-APTT_hid_both |>
+APTT_Clean_both_APTT_only |>
   # all tests
   # summarise(n = n())
   # by cohort
   summarise(n = n(), .by = Cohort)
-APTT_hid_both |>
+APTT_Clean_both_APTT_only |>
+  filter(Test == 'APTT') |>
   summarise(n_OOR = sum(Result == 'OOR'), n_Total = n(), .by = Cohort) |>
   mutate(Percent_OOR = round(n_OOR/n_Total*100, 1))
 
 #  chi-squared test for OOR proportions
-chisq.test(APTT_hid_both$Cohort, APTT_hid_both$OOR)
+chisq.test(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)
 # cramer's V effect size, same formula for phi coefficient when 2x2 table
-sqrt(chisq.test(APTT_hid_both$Cohort, APTT_hid_both$OOR)$statistic / sum(table(APTT_hid_both$Cohort, APTT_hid_both$OOR)))
+sqrt(chisq.test(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)$statistic / sum(table(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)))
 # phi coefficient effect size
-phi(table(APTT_hid_both$Cohort, APTT_hid_both$OOR))
+phi(table(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR))
 
 # cohens h coefficient effect size
 2*(asin(sqrt(0.122))) - 2*(asin(sqrt(0.046)))
 
 # total from 2025 that were 120 to 400
-APTT_hid_both |>
+APTT_Clean_both |>
   filter(Cohort == "2025") |>
   mutate(OOR_value = as.numeric(Result)) |>
   summarise(n_120_to_400 = sum(OOR_value >= 120 & OOR_value < 400, na.rm = TRUE), n_Total = n()) |>
@@ -117,15 +121,15 @@ APTT_hid_both |>
 
 
 # test frequency per patient
-APTT_hid_both_freq <- APTT_hid_both |>
+APTT_Clean_both_freq <- APTT_Clean_both |>
   summarise(n_Tests = n(), .by = c(ID, Cohort))
-APTT_hid_both_freq |>
+APTT_Clean_both_freq |>
   summarise(median = median(n_Tests), IQR = IQR(n_Tests), Q1 = quantile(n_Tests, 0.25), Q3 = quantile(n_Tests, 0.75), .by = Cohort)
 
 # compare frequency
-mwu_frequency <- wilcox.test(n_Tests ~ Cohort, data = APTT_hid_both_freq, exact = FALSE, conf.int = TRUE)
+mwu_frequency <- wilcox.test(n_Tests ~ Cohort, data = APTT_Clean_both_freq, exact = FALSE, conf.int = TRUE)
 mwu_frequency
 #  effect size
-abs(qnorm(mwu_frequency$p.value / 2)) / sqrt(nrow(APTT_hid_both_freq))
+abs(qnorm(mwu_frequency$p.value / 2)) / sqrt(nrow(APTT_Clean_both_freq))
 
 

@@ -87,7 +87,26 @@ APTT_2024_hid <- APTT_2024 |>
   mutate(Psuedo_ID = row_number(), .before = DT_Admit) |>
   left_join(APTT_2024, by = join_by(ID, DT_Admit)) |>
   filter(month(DT_Hep_Start) >= 2)
-# write_delim(APTT_2024_hid, delim = '\t', file = 'APTT_2024.txt')
+# write_delim(APTT_2024_hid, delim = '\t', file = 'APTT_2024.txt') 
+
+# filter those encounters where APTT was used
+APTT_2024_w_APTT <- APTT_2024_hid |>
+  filter(Test == 'APTT') |>
+  distinct(ID, DT_Admit) |>
+  left_join(APTT_2024_hid, by = join_by(ID, DT_Admit))
+
+# correct sequence of samples for patients with multiple samples with same In Lab datetime
+APTT_2024_Clean <- APTT_2024_w_APTT |>
+  mutate(
+    SSeq = row_number(), 
+    .by = c(ID, DT_Admit, DT_InLab)) |>
+  filter(SSeq <= 2) |>
+  mutate(
+    SSeq2 = row_number(), 
+    .by = c(ID, DT_Admit, SSeq)) |>
+  mutate(
+    SSeq3 = ifelse(SSeq == 1, SSeq2, lag(SSeq2, 1)),
+  )
 
   
   
@@ -166,14 +185,21 @@ APTT_2025_hid <- APTT_2025 |>
   filter(month(DT_Hep_Start) >= 2)
 # write_delim(APTT_2025_hid, delim = '\t', file = 'APTT_2025.txt')
 
-  
-APTT_2025_hid |>
+# filter those encounters where APTT was used
+APTT_2025_w_APTT <- APTT_2025_hid |>
+  filter(Test == 'APTT') |>
+  distinct(ID, DT_Admit) |>
+  left_join(APTT_2025_hid, by = join_by(ID, DT_Admit))
+
+# correct sequence of samples for patients with multiple samples with same In Lab datetime
+APTT_2025_Clean <- APTT_2025_w_APTT |>
   mutate(
     SSeq = row_number(), 
-    .by = c(ID, DT_Admit, DT_Drawn)) |>
+    .by = c(ID, DT_Admit, DT_InLab)) |>
+  filter(SSeq <= 2) |>
   mutate(
     SSeq2 = row_number(), 
     .by = c(ID, DT_Admit, SSeq)) |>
-  View()
-
-
+  mutate(
+    SSeq3 = ifelse(SSeq == 1, SSeq2, lag(SSeq2, 1)),
+  )
