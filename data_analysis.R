@@ -2,6 +2,7 @@ library(tidyverse)
 library(psych)
 
 APTT_2024_stats <- APTT_2024_hid |>
+  filter(Test == 'APTT') |>
   select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
