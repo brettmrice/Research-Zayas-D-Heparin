@@ -189,7 +189,7 @@ APTT_2025_hid <- APTT_2025 |>
 APTT_2025_w_APTT <- APTT_2025_hid |>
   filter(Test == 'APTT') |>
   distinct(ID, DT_Admit) |>
-  left_join(APTT_2025_hid, by = join_by(ID, DT_Admit))
+  left_join(APTT_2025_hid, by = joisan_by(ID, DT_Admit))
 
 # correct sequence of samples for patients with multiple samples with same In Lab datetime
 APTT_2025_Clean <- APTT_2025_w_APTT |>

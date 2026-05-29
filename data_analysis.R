@@ -2,28 +2,35 @@ library(tidyverse)
 library(psych)
 
 APTT_2024_stats <- APTT_2024_Clean |>
-  select(!c(Test:DT_Complete)) |>
+  # select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
-         Cohort = "2024")
+         Cohort = "2024",
+         Result = as.character(Result))
 
 APTT_2025_stats <- APTT_2025_Clean |>
-  select(!c(Test:DT_Complete)) |>
+  # select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
-         Cohort = "2025")
+         Cohort = "2025",
+         Result = as.character(Result))
 
-APTT_both <- bind_rows(APTT_2024_stats, APTT_2025_stats)
+APTT_both <- bind_rows(APTT_2024_stats, APTT_2025_stats) |>
+  filter(!is.na(Test)) |>
+  mutate(Test = ifelse(Test == "APTT", "APTT", "Anti-Xa"))
 
-# Number of patient encounts
+# Number of patient encounters
 APTT_both |>
-  # all patients
+  distinct(Cohort, ID) |>
+  # all patient encounters
   # summarise(n = n())
   # by cohort
   summarise(n = n(), .by = Cohort)
 
 #  Heparin therapy durations
-APTT_both |>
+APTT_both_unique_encounters <- APTT_both |>
+  distinct(Cohort, ID, .keep_all = TRUE) 
+APTT_both_unique_encounters|>
   # by cohort
   summarise(
     median = median(Hep_Duration), 
@@ -33,13 +40,13 @@ APTT_both |>
     .by = Cohort)
 
 # compare durations
-mwu_durations <- wilcox.test(Hep_Duration ~ Cohort, data = APTT_both, exact = FALSE, conf.int = TRUE)
+mwu_durations <- wilcox.test(Hep_Duration ~ Cohort, data = APTT_both_unique_encounters, exact = FALSE, conf.int = TRUE)
 mwu_durations
 #  effect size
-abs(qnorm(mwu_durations$p.value / 2)) / sqrt(nrow(APTT_both))
+abs(qnorm(mwu_durations$p.value / 2)) / sqrt(nrow(APTT_both_unique_encounters))
 
 # histogram of durations
-APTT_both |>
+APTT_both_unique_encounters |>
   mutate(Hep_Duration = ifelse(Hep_Duration > 20, 20, Hep_Duration)) |> # cap durations at 30 days for better visualization
   ggplot(aes(x = Hep_Duration, fill = Cohort)) +
   geom_histogram(position = "dodge", col="white") +
@@ -49,7 +56,7 @@ APTT_both |>
   scale_fill_manual(values = c("2024" = "#A5ACAF", "2025" = "#002f55"))
 
 # column chart of durations
-APTT_both |>
+APTT_both_unique_encounters |>
   mutate(Hep_Duration = ifelse(Hep_Duration > 20, 20, Hep_Duration)) |>
   summarise(Count = n(), .by = c(Cohort, Hep_Duration)) |>
   right_join(
@@ -74,46 +81,58 @@ APTT_both |>
   )
 # save svg as 400x300 for publication
 
+# aptt and anti-xa usage
+APTT_both |>
+  # all tests
+  # summarise(n = n())
+  # by cohort
+  # summarise(n = n(), .by = Cohort) |>
+  # mutate(Percent = round(n/sum(n)*100, 1))
+  # by test
+  # summarise(n_APTT = sum(Test == "APTT"), n_AntiXa = sum(Test != "APTT")) 
+  # by cohort
+  summarise(n_APTT = sum(Test == "APTT"), n_AntiXa = sum(Test != "APTT"), .by = Cohort) |>
+  mutate(Percent_APTT = round(n_APTT/sum(n_APTT, n_AntiXa)*100, 1),
+         Percent_AntiXa = round(n_AntiXa/sum(n_APTT, n_AntiXa)*100, 1), .by = Cohort)
+
+#  chi-squared test for OOR proportions
+chisq.test(APTT_both$Cohort, APTT_both$Test)
+# cramer's V effect size, same formula for phi coefficient when 2x2 table
+sqrt(chisq.test(APTT_both$Cohort, APTT_both$Test)$statistic / sum(table(APTT_both$Cohort, APTT_both$Test)))
+
+
+
+
 
 #  OOR results
-APTT_Clean_both <- APTT_2024_Clean |>
-  mutate(
-    ID = as.character(ID),
-    Result = ifelse(Result == 0 | Result == 120 | is.na(Result), 'OOR', as.character(Result)),
-    Cohort = "2024") |>
-  bind_rows(APTT_2025_Clean |>
-              mutate(ID = as.character(ID),
-                     Result = ifelse(Result == 0 | Result == 400 | is.na(Result), 'OOR', as.character(Result)),
-                     Cohort = "2025")) |>
+APTT_OOR <- APTT_both |>
+  filter(Test == 'APTT') |>
+  mutate(Result = ifelse(Cohort == "2024" & (Result == 0 | Result == 120 | is.na(Result)), 'OOR', as.character(Result)),
+         Result = ifelse(Cohort == "2025" & (Result == 0 | Result == 400 | is.na(Result)), 'OOR', as.character(Result))) |>
   mutate(OOR = ifelse(Result == 'OOR', 1, 0))
 
-# clean and only APTT tests
-APTT_Clean_both_APTT_only <- APTT_Clean_both |>
-  filter(Test == 'APTT')
-
 # total APTT tests
-APTT_Clean_both_APTT_only |>
+APTT_OOR |>
   # all tests
   # summarise(n = n())
   # by cohort
   summarise(n = n(), .by = Cohort)
-APTT_Clean_both_APTT_only |>
-  filter(Test == 'APTT') |>
-  summarise(n_OOR = sum(Result == 'OOR'), n_Total = n(), .by = Cohort) |>
+APTT_OOR |>
+  summarise(n_OOR = sum(OOR == 1), n_Total = n(), .by = Cohort) |>
   mutate(Percent_OOR = round(n_OOR/n_Total*100, 1))
 
 #  chi-squared test for OOR proportions
-chisq.test(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)
+chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)
 # cramer's V effect size, same formula for phi coefficient when 2x2 table
-sqrt(chisq.test(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)$statistic / sum(table(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR)))
+sqrt(chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)$statistic / sum(table(APTT_OOR$Cohort, APTT_OOR$OOR)))
 # phi coefficient effect size
-phi(table(APTT_Clean_both_APTT_only$Cohort, APTT_Clean_both_APTT_only$OOR))
+phi(table(APTT_OOR$Cohort, APTT_OOR$OOR))
 
 # cohens h coefficient effect size
 2*(asin(sqrt(0.122))) - 2*(asin(sqrt(0.046)))
 
 # total from 2025 that were 120 to 400
-APTT_Clean_both |>
+APTT_OOR |>
   filter(Cohort == "2025") |>
   mutate(OOR_value = as.numeric(Result)) |>
   summarise(n_120_to_400 = sum(OOR_value >= 120 & OOR_value < 400, na.rm = TRUE), n_Total = n()) |>
