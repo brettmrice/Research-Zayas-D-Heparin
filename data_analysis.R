@@ -1,5 +1,5 @@
 library(tidyverse)
-library(psych)
+# library(psych)
 
 APTT_2024_stats <- APTT_2024_Clean |>
   # select(!c(Test:DT_Complete)) |>
@@ -126,10 +126,10 @@ chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)
 # cramer's V effect size, same formula for phi coefficient when 2x2 table
 sqrt(chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)$statistic / sum(table(APTT_OOR$Cohort, APTT_OOR$OOR)))
 # phi coefficient effect size
-phi(table(APTT_OOR$Cohort, APTT_OOR$OOR))
+# phi(table(APTT_OOR$Cohort, APTT_OOR$OOR))
 
 # cohens h coefficient effect size
-2*(asin(sqrt(0.122))) - 2*(asin(sqrt(0.046)))
+# 2*(asin(sqrt(0.122))) - 2*(asin(sqrt(0.046)))
 
 # total from 2025 that were 120 to 400
 APTT_OOR |>
@@ -139,16 +139,30 @@ APTT_OOR |>
   mutate(Percent_120_to_400 = round(n_120_to_400/n_Total*100, 1))
 
 
+
+
+
+
 # test frequency per patient
-APTT_Clean_both_freq <- APTT_Clean_both |>
-  summarise(n_Tests = n(), .by = c(ID, Cohort))
-APTT_Clean_both_freq |>
-  summarise(median = median(n_Tests), IQR = IQR(n_Tests), Q1 = quantile(n_Tests, 0.25), Q3 = quantile(n_Tests, 0.75), .by = Cohort)
+APTT_both_freq <- APTT_both |>
+  summarise(n_Tests = n(), .by = c(ID, Cohort, Test))
+APTT_both_freq |>
+  summarise(
+    median = median(n_Tests), 
+    IQR = IQR(n_Tests), 
+    Q1 = quantile(n_Tests, 0.25), 
+    Q3 = quantile(n_Tests, 0.75), 
+    .by = c(Cohort, Test))
+
+#  chi-squared test for OOR proportions
+chisq.test(APTT_both$Cohort, APTT_both$Test)
+# cramer's V effect size, same formula for phi coefficient when 2x2 table
+sqrt(chisq.test(APTT_both$Cohort, APTT_both$Test)$statistic / sum(table(APTT_both$Cohort, APTT_both$Test)))
 
 # compare frequency
-mwu_frequency <- wilcox.test(n_Tests ~ Cohort, data = APTT_Clean_both_freq, exact = FALSE, conf.int = TRUE)
+mwu_frequency <- wilcox.test(n_Tests ~ Cohort, data = APTT_both_freq, exact = FALSE, conf.int = TRUE)
 mwu_frequency
 #  effect size
-abs(qnorm(mwu_frequency$p.value / 2)) / sqrt(nrow(APTT_Clean_both_freq))
+abs(qnorm(mwu_frequency$p.value / 2)) / sqrt(nrow(APTT_both_freq))
 
 
