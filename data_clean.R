@@ -39,7 +39,14 @@ aptt_24 <- aptt_24_raw|>
                                  Result_Comment,
                                  NA_character_)) |>
   select(!c(Gender, Race)) |>
-  filter(month(DT_InLab) >= 2)
+  filter(month(DT_InLab) >= 2) |>
+  mutate(
+    Result = as.character(Result),
+    Result = case_when(
+      (Test == 'APTT' & (Result == '0' | Result == '120.00')) ~ '>120',
+      TRUE ~ Result
+    )
+  )
 
 aptt_24_hepprot <- read_delim('data/data_in_use/Heparin_Protocol_2024.txt', 
                               delim = '\t',
@@ -71,7 +78,7 @@ APTT_2024 <- aptt_24_hepprot |>
          LOS_Days_HepStart_to_Discharge = round(interval(DT_Hep_Start, DT_Dischage)/days(1), 1)) |>
   filter(Age >= 18,
          as_date(DT_InLab) >= DT_Hep_Start,
-         # as_date(DT_InLab) <= DT_Hep_Stop,
+         as_date(DT_InLab) <= DT_Hep_Stop,
          Hep_Duration >= 1) |>
   select(!c(DOB, DT_Verify, Age)) |>
   group_by(ID, DT_Admit) |>
@@ -112,8 +119,10 @@ APTT_2024_Clean <- APTT_2024_w_APTT |>
   
 
 
-aptt_25_raw <- list.files('data/data_in_use/', pattern = 'APTT_2025', full.names = TRUE) |>
-  map_dfr(readxl::read_xlsx, guess_max = Inf)
+aptt_25_raw <- NULL
+for(f in list.files('data/data_in_use/', pattern = 'APTT_ANTXA', full.names = TRUE)) {
+  aptt_25_raw <- bind_rows(aptt_25_raw, readxl::read_xlsx(f, guess_max = Inf))
+}
 aptt_25 <- aptt_25_raw |>
   transmute(ID = str_split_i(`Patient/MRN`, ' \\(', 2) |> 
               str_replace_all(c('\\)' = '')),
@@ -136,7 +145,8 @@ aptt_25 <- aptt_25_raw |>
          Result = str_split_i(Result, ' ', 1)) |>
   ungroup() |>
   select(!c(DT_Verify)) |>
-  filter(month(DT_InLab) >= 2)
+  filter(month(DT_InLab) >= 2) |>
+  mutate(Result = replace_na(Result, '>400.0'))
 
 aptt_25_hepprot_raw <- readxl::read_xlsx('data/data_in_use/Heparin_Protocol_2025.xlsx', sheet = 1)
 aptt_25_hepprot <- aptt_25_hepprot_raw |>
@@ -189,7 +199,7 @@ APTT_2025_hid <- APTT_2025 |>
 APTT_2025_w_APTT <- APTT_2025_hid |>
   filter(Test == 'APTT') |>
   distinct(ID, DT_Admit) |>
-  left_join(APTT_2025_hid, by = joisan_by(ID, DT_Admit))
+  left_join(APTT_2025_hid, by = join_by(ID, DT_Admit))
 
 # correct sequence of samples for patients with multiple samples with same In Lab datetime
 APTT_2025_Clean <- APTT_2025_w_APTT |>
