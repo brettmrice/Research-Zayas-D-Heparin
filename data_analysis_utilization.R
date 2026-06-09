@@ -69,8 +69,8 @@ Corr_Assays_Spearman <- Corr_Assays |>
     APTT_Result = ifelse(Test == "APTT", Result, lead_1_Result),
     AntiXa_Result = ifelse(Test == "Anti-Xa", Result, lead_1_Result),
     APTT_TR = case_when(
-        APTT_Result < 45 ~ 1,
-        APTT_Result > 65 ~ 3,
+        APTT_Result < 54.7 ~ 1,
+        APTT_Result > 94.4 ~ 3,
         TRUE ~ 2
     ),
     AntiXa_TR = case_when(

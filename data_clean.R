@@ -31,22 +31,25 @@ aptt_24 <- aptt_24_raw|>
                               lead(Race, 1),
                               DT_Complete)) |>
   filter(Test != '\r',
-         DT_Drawn != 1) |>
+         DT_Drawn != 1,
+        Result_Comment != 'Wrong Anti-Xa test ordered per Leah Reid') |>
   mutate(across(contains('DT_'), mdy_hms)) |>
   mutate(DOB = mdy_hms(DOB) |> as_date(),
-         ID = as.numeric(ID),
-         Result_Comment = ifelse(grepl('fail', Result_Comment, ignore.case = TRUE),
-                                 Result_Comment,
-                                 NA_character_)) |>
+         ID = as.numeric(ID)) |>
+        #  Result_Comment = ifelse(grepl('fail', Result_Comment, ignore.case = TRUE),
+        #                          Result_Comment,
+        #                          NA_character_)) |>
   select(!c(Gender, Race)) |>
   filter(month(DT_InLab) >= 2) |>
   mutate(
     Result = as.character(Result),
     Result = case_when(
       (Test == 'APTT' & (Result == '0' | Result == '120.00')) ~ '>120',
+      grepl('UFHEP', Test) & Result == 0 ~ '1.99',
       TRUE ~ Result
     )
-  )
+  ) |>
+  filter(Result != '0')
 
 aptt_24_hepprot <- read_delim('data/data_in_use/Heparin_Protocol_2024.txt', 
                               delim = '\t',
@@ -120,7 +123,7 @@ APTT_2024_Clean <- APTT_2024_w_APTT |>
 
 
 aptt_25_raw <- NULL
-for(f in list.files('data/data_in_use/', pattern = 'APTT_ANTXA', full.names = TRUE)) {
+for(f in list.files('data/data_in_use/', pattern = 'APTT_ANTIXA', full.names = TRUE)) {
   aptt_25_raw <- bind_rows(aptt_25_raw, readxl::read_xlsx(f, guess_max = Inf))
 }
 aptt_25 <- aptt_25_raw |>
