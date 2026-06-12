@@ -2,34 +2,34 @@ library(tidyverse)
 # library(psych)
 
 APTT_2024_stats <- APTT_2024_Clean |>
-  # select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
          Cohort = "2024",
          Result = as.character(Result))
 
 APTT_2025_stats <- APTT_2025_Clean |>
-  # select(!c(Test:DT_Complete)) |>
   distinct() |>
   mutate(ID = as.character(ID),
          Cohort = "2025",
          Result = as.character(Result))
 
-APTT_both <- bind_rows(APTT_2024_stats, APTT_2025_stats) |>
-  filter(!is.na(Test)) |>
-  mutate(Test = ifelse(Test == "APTT", "APTT", "Anti-Xa")) |>
-  filter(
-    DT_Drawn >= DT_Hep_Start,
-    DT_Drawn <= DT_Hep_Stop
-  ) |>
-  filter(!is.na(Result))
+APTT_both <- bind_rows(APTT_2024_stats, APTT_2025_stats)
+
+# APTT_both |>
+#   summarise(
+#     Min_Seq = min(SSeq3), 
+#     Max_Seq = max(SSeq3),
+#     .by = c(ID, DT_Admit)) |>
+#   View()
 
 # Number of patient encounters
+# all patient encounters
 APTT_both |>
   distinct(Cohort, ID) |>
-  # all patient encounters
-  # summarise(n = n())
-  # by cohort
+  summarise(n = n())
+# by cohort
+APTT_both |>
+  distinct(Cohort, ID) |>
   summarise(n = n(), .by = Cohort)
 
 #  Heparin therapy durations
@@ -72,7 +72,6 @@ APTT_both_unique_encounters |>
     by = c("Cohort", "Hep_Duration")
   ) |> 
   mutate(Count = replace_na(Count, 0)) |>
-  
   ggplot(aes(x = Hep_Duration, y = Count, fill = Cohort)) +
   geom_col(position = position_dodge2(preserve = "single"), just = 0.5) +
   labs(x = "Duration (days)",
@@ -87,10 +86,11 @@ APTT_both_unique_encounters |>
 # save svg as 400x300 for publication
 
 # aptt and anti-xa usage
+# all tests
 APTT_both |>
-  # all tests
-  # summarise(n = n())
-  # by cohort
+  summarise(n = n())
+# by cohort
+APTT_both |>
   summarise(n_Test = n(), n_APTT = sum(Test == "APTT"), n_AntiXa = sum(Test != "APTT"), .by = Cohort) |>
   mutate(Percent_APTT = round(n_APTT/sum(n_APTT, n_AntiXa)*100, 1),
          Percent_AntiXa = round(n_AntiXa/sum(n_APTT, n_AntiXa)*100, 1), .by = Cohort) |>
@@ -113,18 +113,17 @@ APTT_OOR <- APTT_both |>
   mutate(OOR = ifelse(Result == 'OOR', 1, 0))
 
 # total APTT tests
+# all tests
 APTT_OOR |>
-  # all tests
   summarise(n = n())
-  # by cohort
-  summarise(n = n(), .by = Cohort)
+# by cohort
 APTT_OOR |>
   summarise(n_OOR = sum(OOR == 1), n_Total = n(), .by = Cohort) |>
   mutate(Percent_OOR = round(n_OOR/n_Total*100, 1))
 
 #  chi-squared test for OOR proportions
 chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)
-fisher.test(APTT_OOR$Cohort, APTT_OOR$OOR)
+# fisher.test(APTT_OOR$Cohort, APTT_OOR$OOR)
 # cramer's V effect size, same formula for phi coefficient when 2x2 table
 sqrt(chisq.test(APTT_OOR$Cohort, APTT_OOR$OOR)$statistic / sum(table(APTT_OOR$Cohort, APTT_OOR$OOR)))
 # phi coefficient effect size
@@ -169,7 +168,8 @@ APTT_to_ANTIXA |>
 mwu_all_frequency <- wilcox.test(Total ~ Cohort, data = APTT_to_ANTIXA, exact = FALSE, conf.int = TRUE)
 mwu_all_frequency
 #  effect size
-abs(qnorm(mwu_all_frequency$p.value / 2)) / sqrt(nrow(APTT_to_ANTIXA))
+# abs(qnorm(mwu_all_frequency$p.value / 2)) / sqrt(nrow(APTT_to_ANTIXA))
+abs(qnorm(0.00000000000000022 / 2)) / sqrt(nrow(APTT_to_ANTIXA))
 
 APTT_to_ANTIXA |>
   summarise(
@@ -186,8 +186,21 @@ mwu_aptt_frequency
 abs(qnorm(mwu_aptt_frequency$p.value / 2)) / sqrt(nrow(APTT_to_ANTIXA))
 
 
-# time interval for 2024 OOR results compared to 2025 120-400
-# any assay completed next
+
+# time interval for any assay completed next
+# concurrent assays
+Conc_Assays <- APTT_both |>
+  filter(SSeq == 2)
+
+Time_to_Next_Any_Assay <- APTT_both |>
+  mutate(Result = ifelse(Cohort == "2024" & (Result == '>120' | Result == '120'), 'OOR', as.character(Result)),
+         Result = ifelse(Cohort == "2025" & (Result == '>400.0'), 'OOR', as.character(Result))) |>
+  mutate(OOR = ifelse(Result == 'OOR', 1, 0)) |>
+  arrange(Cohort, ID, SSeq3, desc(Test)) |>
+  filter(SSeq == 1) |>
+  mutate(Next_Interval = interval(DT_Complete, lead(DT_Complete, 1))/hours(1), .by = c(ID, Cohort)) |>
+  filter(!is.na(Next_Interval))
+
 Time_to_Next_Any_OOR <- APTT_OOR |>
   arrange(Cohort, ID, Sample_Seq, desc(Test)) |>
   filter(SSeq == 1) |>

@@ -30,15 +30,14 @@ aptt_24 <- aptt_24_raw|>
          DT_Complete = ifelse(!is.na(mdy_hms(lead(Race, 1))), 
                               lead(Race, 1),
                               DT_Complete)) |>
-  filter(Test != '\r',
-         DT_Drawn != 1,
-        Result_Comment != 'Wrong Anti-Xa test ordered per Leah Reid') |>
-  mutate(across(contains('DT_'), mdy_hms)) |>
-  mutate(DOB = mdy_hms(DOB) |> as_date(),
-         ID = as.numeric(ID)) |>
-        #  Result_Comment = ifelse(grepl('fail', Result_Comment, ignore.case = TRUE),
-        #                          Result_Comment,
-        #                          NA_character_)) |>
+  filter(
+    Test != '\r',
+    DT_Drawn != 1,
+    Result_Comment != 'Wrong Anti-Xa test ordered per Leah Reid') |>
+  mutate(
+    across(contains('DT_'), mdy_hms),
+    DOB = mdy_hms(DOB) |> as_date(),
+    ID = as.numeric(ID)) |>
   select(!c(Gender, Race)) |>
   filter(month(DT_InLab) >= 2) |>
   mutate(
@@ -46,28 +45,28 @@ aptt_24 <- aptt_24_raw|>
     Result = case_when(
       (Test == 'APTT' & (Result == '0' | Result == '120.00')) ~ '>120',
       grepl('UFHEP', Test) & Result == 0 ~ '1.99',
-      TRUE ~ Result
-    )
-  ) |>
+      TRUE ~ Result)) |>
   filter(Result != '0')
 
 aptt_24_hepprot <- read_delim('data/data_in_use/Heparin_Protocol_2024.txt', 
                               delim = '\t',
                               show_col_types = FALSE) |>
   ungroup() |>
-  transmute(ID = `Person - Medical Record Number`,
-            DT_Admit = `Admit Dt/Tm`,
-            DT_Dischage = `Discharge DT/TM`,
-            Hep_Protocol = `Path Description`,
-            DT_Hep_Start = `Order Current Start Dt/Tm`,
-            DT_Hep_ProjStop = `Order Projected Stop DT/TM`,
-            DT_Hep_Complete = `Order Complete Dt/Tm`,
-            DT_Hep_Discontinue = `Order Discontinue Dt/Tm`) |>
+  transmute(
+    ID = `Person - Medical Record Number`,
+    DT_Admit = `Admit Dt/Tm`,
+    DT_Dischage = `Discharge DT/TM`,
+    Hep_Protocol = `Path Description`,
+    DT_Hep_Start = `Order Current Start Dt/Tm`,
+    DT_Hep_ProjStop = `Order Projected Stop DT/TM`,
+    DT_Hep_Complete = `Order Complete Dt/Tm`,
+    DT_Hep_Discontinue = `Order Discontinue Dt/Tm`) |>
   mutate(across(contains('DT_'), mdy_hms)) |>
-  summarise(Hep_Protocol = glue::glue_collapse(Hep_Protocol, sep = '; '),
-            DT_Hep_Start = as_date(min(DT_Hep_Start, na.rm = TRUE)),
-            DT_Hep_Stop = max(DT_Hep_ProjStop, DT_Hep_Discontinue, na.rm = TRUE) |> as_date(),
-            .by = c(ID, DT_Admit, DT_Dischage))
+  summarise(
+    Hep_Protocol = glue::glue_collapse(Hep_Protocol, sep = '; '),
+    DT_Hep_Start = as_date(min(DT_Hep_Start, na.rm = TRUE)),
+    DT_Hep_Stop = max(DT_Hep_ProjStop, DT_Hep_Discontinue, na.rm = TRUE) |> as_date(),
+    .by = c(ID, DT_Admit, DT_Dischage))
 
 APTT_2024 <- aptt_24_hepprot |>
   left_join(aptt_24, by = join_by(ID), relationship = "many-to-many") |>
@@ -107,6 +106,11 @@ APTT_2024_w_APTT <- APTT_2024_hid |>
 
 # correct sequence of samples for patients with multiple samples with same In Lab datetime
 APTT_2024_Clean <- APTT_2024_w_APTT |>
+  mutate(Test = ifelse(Test == "APTT", "APTT", "Anti-Xa")) |>
+  filter(
+    DT_Drawn >= DT_Hep_Start,
+    DT_Drawn <= DT_Hep_Stop
+  ) |>
   mutate(
     SSeq = row_number(), 
     .by = c(ID, DT_Admit, DT_InLab)) |>
@@ -206,6 +210,11 @@ APTT_2025_w_APTT <- APTT_2025_hid |>
 
 # correct sequence of samples for patients with multiple samples with same In Lab datetime
 APTT_2025_Clean <- APTT_2025_w_APTT |>
+  mutate(Test = ifelse(Test == "APTT", "APTT", "Anti-Xa")) |>
+  filter(
+    DT_Drawn >= DT_Hep_Start,
+    DT_Drawn <= DT_Hep_Stop
+  ) |>
   mutate(
     SSeq = row_number(), 
     .by = c(ID, DT_Admit, DT_InLab)) |>
