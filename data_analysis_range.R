@@ -144,7 +144,7 @@ APTT_OOR |>
 
 
 
-# test frequency per patient
+# All test frequency per patient
 APTT_both_freq <- APTT_both |>
   summarise(n_Tests = n(), .by = c(ID, Cohort, Test))
 
@@ -171,6 +171,7 @@ mwu_all_frequency
 # abs(qnorm(mwu_all_frequency$p.value / 2)) / sqrt(nrow(APTT_to_ANTIXA))
 abs(qnorm(0.00000000000000022 / 2)) / sqrt(nrow(APTT_to_ANTIXA))
 
+# aPTT test frequency per patient
 APTT_to_ANTIXA |>
   summarise(
     median = median(APTT), 
@@ -188,17 +189,18 @@ abs(qnorm(mwu_aptt_frequency$p.value / 2)) / sqrt(nrow(APTT_to_ANTIXA))
 
 
 # time interval for any assay completed next
-# concurrent assays
-Conc_Assays <- APTT_both |>
-  filter(SSeq == 2)
 
 Time_to_Next_Any_Assay <- APTT_both |>
   mutate(Result = ifelse(Cohort == "2024" & (Result == '>120' | Result == '120'), 'OOR', as.character(Result)),
          Result = ifelse(Cohort == "2025" & (Result == '>400.0'), 'OOR', as.character(Result))) |>
   mutate(OOR = ifelse(Result == 'OOR', 1, 0)) |>
-  arrange(Cohort, ID, SSeq3, desc(Test)) |>
-  filter(SSeq == 1) |>
-  mutate(Next_Interval = interval(DT_Complete, lead(DT_Complete, 1))/hours(1), .by = c(ID, Cohort)) |>
+  arrange(Cohort, ID, Psuedo_ID, SSeq3, DT_Complete) |>
+  # filter(SSeq == 1) |>
+  mutate(
+    Same_Draw_or_InLab = ifelse(SSeq3 == lead(SSeq3, 1) | SSeq3 == lag(SSeq3, 1), TRUE, FALSE),
+    Same_Test = ifelse(Same_Draw_or_InLab & (Test == lead(Test, 1) | Test == lag(Test, 1)), TRUE, FALSE),
+    Next_Interval = interval(DT_Complete, lead(DT_Complete, 1))/hours(1), 
+    .by = c(ID, Cohort)) |>
   filter(!is.na(Next_Interval))
 
 Time_to_Next_Any_OOR <- APTT_OOR |>
@@ -222,6 +224,13 @@ mwu_next_interval <- wilcox.test(Next_Interval ~ Cohort, data = Time_to_Next, ex
 mwu_next_interval
 #  effect size
 abs(qnorm(mwu_next_interval$p.value / 2)) / sqrt(nrow(Time_to_Next))
+
+
+# concurrent assays
+Conc_Assays <- APTT_both |>
+  filter(SSeq == 2)
+
+
 
 
 # assays with OOR or within 120 - 400
