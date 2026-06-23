@@ -3,7 +3,7 @@ library(tidyverse)
 aptt_24_raw <- read_delim('data/data_in_use/APTT_2024.txt',
                       delim = '\t',
              show_col_types = FALSE)
-aptt_24 <- aptt_24_raw|>
+aptt_24 <- aptt_24_raw |>
   transmute(ID = `Alias - Person MRN`,
             DOB = `Date/Time - Birth`,
             Gender = Gender,
@@ -100,7 +100,7 @@ APTT_2024_hid <- APTT_2024 |>
 
 # filter those encounters where APTT was used
 APTT_2024_w_APTT <- APTT_2024_hid |>
-  filter(Test == 'APTT') |>
+  # filter(Test == 'APTT') |>
   distinct(ID, DT_Admit) |>
   left_join(APTT_2024_hid, by = join_by(ID, DT_Admit))
 
@@ -111,6 +111,8 @@ APTT_2024_Clean <- APTT_2024_w_APTT |>
     DT_Drawn >= DT_Hep_Start,
     DT_Drawn <= DT_Hep_Stop
   ) |>
+  mutate(
+    Duplicate = )
   mutate(
     SSeq = row_number(), 
     .by = c(ID, DT_Admit, DT_InLab)) |>
@@ -189,6 +191,8 @@ APTT_2025 <- aptt_25_hepprot |>
   select(!c(DOB, Age)) |>
   group_by(ID, DT_Admit) |>
   arrange(DT_Admit, DT_Hep_Start, DT_Complete) |>
+  select(!Result_Comment) |>
+  distinct() |>
   mutate(Sample_Seq = row_number()) |>
   ungroup() |>
   arrange(DT_Admit, ID) |>

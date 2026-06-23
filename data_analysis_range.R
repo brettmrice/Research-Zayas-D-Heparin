@@ -197,11 +197,10 @@ Time_to_Next_Any_Assay <- APTT_both |>
   arrange(Cohort, ID, Psuedo_ID, SSeq3, DT_Complete) |>
   # filter(SSeq == 1) |>
   mutate(
-    Same_Draw_or_InLab = ifelse(SSeq3 == lead(SSeq3, 1) | SSeq3 == lag(SSeq3, 1), TRUE, FALSE),
-    Same_Test = ifelse(Same_Draw_or_InLab & (Test == lead(Test, 1) | Test == lag(Test, 1)), TRUE, FALSE),
+    Same_Test = ifelse(SSeq == 2 & (Test == lag(Test, 1)), TRUE, FALSE),
     Next_Interval = interval(DT_Complete, lead(DT_Complete, 1))/hours(1), 
-    .by = c(ID, Cohort)) |>
-  filter(!is.na(Next_Interval))
+    .by = c(ID, Cohort)) 
+  # filter(!is.na(Next_Interval))
 
 Time_to_Next_Any_OOR <- APTT_OOR |>
   arrange(Cohort, ID, Sample_Seq, desc(Test)) |>
